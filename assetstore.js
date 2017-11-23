@@ -14,7 +14,7 @@ const ASSET_STORE_HOST 	= 'https://www.assetstore.unity3d.com',
 
 class AssetStore {
 	init() {
-		this.downloadAsset('VRTK - Virtual Reality Toolkit - [ VR Toolkit ]');
+		this.downloadAsset('64131');
 	}
 
 
@@ -97,15 +97,15 @@ class AssetStore {
 	}
 
 
-	getAssetNamed(name) {
-		return this.getAssetList().then(list => _.findWhere(list, {name}));
+	getAssetNamed(id) {
+		return this.getAssetList().then(list => _.findWhere(list, {id}));
 	}
 
 
-	getAssetDownloadInfo(name) {
-		return this.getAssetNamed(name)
+	getAssetDownloadInfo(id) {
+		return this.getAssetNamed(id)
 			.then(asset => {
-				let storedInfo = localStorage.getItem(`info/${name}`);
+				let storedInfo = localStorage.getItem(`info-${id}`);
 				if(storedInfo) {
 					console.log('[AssetStore] got info from cache');
 					return JSON.parse(storedInfo);
@@ -125,7 +125,7 @@ class AssetStore {
 							url: 		fetchedInfo.download.url,
 							key: 		fetchedInfo.download.key
 						};
-						localStorage.setItem(`info/${name}`, JSON.stringify(info, null, 4));
+						localStorage.setItem(`info-${id}`, JSON.stringify(info, null, 4));
 						return info;
 					});
 				}
@@ -133,8 +133,8 @@ class AssetStore {
 	}
 
 
-	downloadAsset(name) {
-		return this.getAssetDownloadInfo(name)
+	downloadAsset(id) {
+		return this.getAssetDownloadInfo(id)
 			.then(info => {
 				let folder = '.',
 					encryptedFilePath = `${folder}/${info.filename}.tmp`,
