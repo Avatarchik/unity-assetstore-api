@@ -1,10 +1,11 @@
-const _ = require('underscore'),
-	  fs = require('fs'),
-	  request = require('request-promise-native'),
-	  progress = require('request-progress'),
-	  Nightmare = require('nightmare'),
-	  LocalStorage = require('node-localstorage').LocalStorage,
-	  localStorage = new LocalStorage('./.ls');
+const _ 					= require('underscore'),
+	  fs 					= require('fs'),
+	  request 				= require('request-promise-native'),
+	  progress 				= require('request-progress'),
+	  Nightmare 			= require('nightmare'),
+	  UnityDecryptClient 	= require('unity-package-decrypt').UnityDecryptClient,
+	  LocalStorage 			= require('node-localstorage').LocalStorage,
+	  localStorage 			= new LocalStorage('./.ls');
 
 const ASSET_STORE_HOST 	= 'https://www.assetstore.unity3d.com',
 	  HOME_PAGE 		= '/',
@@ -13,7 +14,7 @@ const ASSET_STORE_HOST 	= 'https://www.assetstore.unity3d.com',
 
 class AssetStore {
 	init() {
-		this.downloadAsset('VRTK - Virtual Reality Toolkit - [ VR Toolkit ]').then(console.log);
+		this.downloadAsset('VRTK - Virtual Reality Toolkit - [ VR Toolkit ]');
 	}
 
 
@@ -69,22 +70,29 @@ class AssetStore {
 	getAssetList(refresh = false) {
 		return this.getSessionID()
 			.then(() => {
-				console.log(`[AssetStore] requesting asset list ...`);
-				if(!refresh && this._list) resolve(this._list);
-				else return request({
-					method: 'POST',
-					url: 'https://kharma.unity3d.com/api/en-US/account/downloads/search.json?tag=%23PACKAGES',
-					headers: {
-						'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-						'Cookie': `kharma_session=${this._session}`
-					},
-					body: '[]',
-					json: true
-				});
-			})
-			.then(list => {
-				this._list = list.results;
-				return this._list;
+				let storedList = localStorage.getItem('assetlist');
+				if(storedList) {
+					console.log('[AssetStore] got asset list from cache');
+					return JSON.parse(storedList);
+				}
+				else {
+					console.log(`[AssetStore] requesting asset list ...`);
+					return request({
+						method: 'POST',
+						url: 'https://kharma.unity3d.com/api/en-US/account/downloads/search.json?tag=%23PACKAGES',
+						headers: {
+							'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+							'Cookie': `kharma_session=${this._session}`
+						},
+						body: '[]',
+						json: true
+					})
+					.then(resp => {
+						let fetchedList = resp.results;
+						localStorage.setItem('assetlist', JSON.stringify(fetchedList, null, 4));
+						return fetchedList;
+					});
+				}
 			});
 	}
 
@@ -97,19 +105,29 @@ class AssetStore {
 	getAssetDownloadInfo(name) {
 		return this.getAssetNamed(name)
 			.then(asset => {
-				console.log(`[AssetStore] requesting download info for asset [${asset.id}]/${asset.name} ...`);
-				return request({
-					method: 'GET',
-					url: `https://kharma.unity3d.com/api/en-US/content/download/${asset.id}.json`,
-					headers: {'Cookie': `kharma_session=${this._session}`},
-					json: true
-				});
-			})
-			.then(info => {
-				return {
-					name: 	info.download.filename_safe_package_name,
-					url: 	info.download.url,
-					key: 	info.download.key
+				let storedInfo = localStorage.getItem(`info/${name}`);
+				if(storedInfo) {
+					console.log('[AssetStore] got info from cache');
+					return JSON.parse(storedInfo);
+				}
+				else {
+					console.log(`[AssetStore] requesting download info for asset [${asset.id}]/${asset.name} ...`);
+					return request({
+						method: 'GET',
+						url: `https://kharma.unity3d.com/api/en-US/content/download/${asset.id}.json`,
+						headers: {'Cookie': `kharma_session=${this._session}`},
+						json: true
+					})
+					.then(fetchedInfo => {
+						console.log(`[AssetStore] asset info :`, fetchedInfo);
+						let info = {
+							filename: 	fetchedInfo.download.filename_safe_package_name,
+							url: 		fetchedInfo.download.url,
+							key: 		fetchedInfo.download.key
+						};
+						localStorage.setItem(`info/${name}`, JSON.stringify(info, null, 4));
+						return info;
+					});
 				}
 			});
 	}
@@ -118,14 +136,29 @@ class AssetStore {
 	downloadAsset(name) {
 		return this.getAssetDownloadInfo(name)
 			.then(info => {
+				let folder = '.',
+					encryptedFilePath = `${folder}/${info.filename}.tmp`,
+					decryptedFilePath = `${folder}/${info.filename}.unitypackage`;
+				_.extend(info, {encryptedFilePath, decryptedFilePath});
+
 				console.log(`[AssetStore] downloading from ${info.url} ...`);
 				return new Promise((resolve, reject) => {
 					progress(request(info.url))
 						.on('progress', state => console.log(state.percent))
 						.on('error', reject)
-						.on('end', resolve)
-						.pipe(fs.createWriteStream(`${info.name}.unitypackage`));
+						.on('end', () => resolve(info))
+						.pipe(fs.createWriteStream(info.encryptedFilePath));
 				});
+			})
+			.then(info => {
+				console.log(`[AssetStore] decrypting asset package ...`);
+				
+				//TODO Failed to import package with error: Couldn't decompress package
+				return new UnityDecryptClient()
+					.decrypt(fs.readFileSync(info.encryptedFilePath), info.key)
+					.then(decryptedData => fs.writeFileSync(info.decryptedFilePath, decryptedData))
+					.then(() => fs.unlinkSync(info.encryptedFilePath))
+					.then(() => console.log('ALL DONE'));
 			});
 	}
 }
