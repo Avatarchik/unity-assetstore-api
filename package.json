@@ -4,7 +4,7 @@
   "description": "NodeJS API for managing Unity AssetStore assets",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
   "keywords": [
     "unity",
@@ -14,6 +14,7 @@
   "license": "MIT",
   "dependencies": {
     "nightmare": "^2.10.0",
+    "node-localstorage": "^1.3.0",
     "request": "^2.83.0",
     "underscore": "^1.8.3",
     "unity-package-decrypt": "^0.1.0"
