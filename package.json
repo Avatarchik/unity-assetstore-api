@@ -16,6 +16,7 @@
     "nightmare": "^2.10.0",
     "node-localstorage": "^1.3.0",
     "request": "^2.83.0",
+    "request-progress": "^3.0.0",
     "request-promise-native": "^1.0.5",
     "underscore": "^1.8.3",
     "unity-package-decrypt": "^0.1.0"

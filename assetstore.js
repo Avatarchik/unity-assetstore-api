@@ -1,6 +1,7 @@
 const _ = require('underscore'),
 	  fs = require('fs'),
 	  request = require('request-promise-native'),
+	  progress = require('request-progress'),
 	  Nightmare = require('nightmare'),
 	  LocalStorage = require('node-localstorage').LocalStorage,
 	  localStorage = new LocalStorage('./.ls');
@@ -116,7 +117,16 @@ class AssetStore {
 
 	downloadAsset(name) {
 		return this.getAssetDownloadInfo(name)
-			.then(info => request(info.url).pipe(fs.createWriteStream(`${info.name}.unitypackage`)));
+			.then(info => {
+				console.log(`[AssetStore] downloading from ${info.url} ...`);
+				return new Promise((resolve, reject) => {
+					progress(request(info.url))
+						.on('progress', state => console.log(state.percent))
+						.on('error', reject)
+						.on('end', resolve)
+						.pipe(fs.createWriteStream(`${info.name}.unitypackage`));
+				});
+			});
 	}
 }
 
