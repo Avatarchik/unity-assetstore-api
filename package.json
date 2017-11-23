@@ -1,0 +1,21 @@
+{
+  "name": "unity-assetstore-api",
+  "version": "0.1.0",
+  "description": "NodeJS API for managing Unity AssetStore assets",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "unity",
+    "assetstore"
+  ],
+  "author": "moscartong@gmail.com",
+  "license": "MIT",
+  "dependencies": {
+    "nightmare": "^2.10.0",
+    "request": "^2.83.0",
+    "underscore": "^1.8.3",
+    "unity-package-decrypt": "^0.1.0"
+  }
+}
