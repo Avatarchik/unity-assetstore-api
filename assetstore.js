@@ -119,13 +119,7 @@ class AssetStore {
 						json: true
 					})
 					.then(fetchedInfo => {
-						console.log(`[AssetStore] asset info :`, fetchedInfo);
-						let info = {
-							filename: 	fetchedInfo.download.filename_safe_package_name,
-							url: 		fetchedInfo.download.url,
-							key: 		fetchedInfo.download.key,
-							raw: 		fetchedInfo.download
-						};
+						let info = fetchedInfo.download;
 						localStorage.setItem(`info-${id}`, JSON.stringify(info, null, 4));
 						return info;
 					});
@@ -138,9 +132,9 @@ class AssetStore {
 		return this.getAssetDownloadInfo(id)
 			.then(info => {
 				let folder = './.downloads',
-					encryptedFilePath = `${folder}/${info.raw.id}.tmp`,
-					decryptedFilePath = `${folder}/${info.filename}.unitypackage`;
-				_.extend(info, {encryptedFilePath, decryptedFilePath});
+					encryptedFilePath = `${folder}/${info.id}.tmp`,
+					decryptedFilePath = `${folder}/${info.filename_safe_package_name}.unitypackage`;
+				_.extend(info, {path:{encryptedFilePath, decryptedFilePath}});
 
 				return new Promise((resolve, reject) => {
 					if(fs.existsSync(encryptedFilePath)) {
@@ -153,7 +147,7 @@ class AssetStore {
 							.on('progress', state => console.log(state.percent))
 							.on('error', reject)
 							.on('end', () => resolve(info))
-							.pipe(fs.createWriteStream(info.encryptedFilePath));
+							.pipe(fs.createWriteStream(info.path.encryptedFilePath));
 					}
 				});
 			})
@@ -162,9 +156,9 @@ class AssetStore {
 				
 				//TODO Failed to import package with error: Couldn't decompress package
 				return new UnityDecryptClient()
-					.decrypt(fs.readFileSync(info.encryptedFilePath), info.key)
-					.then(decryptedData => fs.writeFileSync(info.decryptedFilePath, decryptedData))
-					// .then(() => fs.unlinkSync(info.encryptedFilePath))
+					.decrypt(fs.readFileSync(info.path.encryptedFilePath, {encoding:'binary'}), info.key)
+					.then(decryptedData => fs.writeFileSync(info.path.decryptedFilePath, decryptedData))
+					// .then(() => fs.unlinkSync(info.path.encryptedFilePath))
 					.then(() => console.log('ALL DONE'));
 			});
 	}
