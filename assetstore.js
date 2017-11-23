@@ -123,7 +123,8 @@ class AssetStore {
 						let info = {
 							filename: 	fetchedInfo.download.filename_safe_package_name,
 							url: 		fetchedInfo.download.url,
-							key: 		fetchedInfo.download.key
+							key: 		fetchedInfo.download.key,
+							raw: 		fetchedInfo.download
 						};
 						localStorage.setItem(`info-${id}`, JSON.stringify(info, null, 4));
 						return info;
@@ -136,18 +137,24 @@ class AssetStore {
 	downloadAsset(id) {
 		return this.getAssetDownloadInfo(id)
 			.then(info => {
-				let folder = '.',
-					encryptedFilePath = `${folder}/${info.filename}.tmp`,
+				let folder = './.downloads',
+					encryptedFilePath = `${folder}/${info.raw.id}.tmp`,
 					decryptedFilePath = `${folder}/${info.filename}.unitypackage`;
 				_.extend(info, {encryptedFilePath, decryptedFilePath});
 
-				console.log(`[AssetStore] downloading from ${info.url} ...`);
 				return new Promise((resolve, reject) => {
-					progress(request(info.url))
-						.on('progress', state => console.log(state.percent))
-						.on('error', reject)
-						.on('end', () => resolve(info))
-						.pipe(fs.createWriteStream(info.encryptedFilePath));
+					if(fs.existsSync(encryptedFilePath)) {
+						console.log(`[AssetStore] got file from cache`);
+						resolve(info);
+					}
+					else {
+						console.log(`[AssetStore] downloading from ${info.url} ...`);
+						progress(request(info.url))
+							.on('progress', state => console.log(state.percent))
+							.on('error', reject)
+							.on('end', () => resolve(info))
+							.pipe(fs.createWriteStream(info.encryptedFilePath));
+					}
 				});
 			})
 			.then(info => {
@@ -157,7 +164,7 @@ class AssetStore {
 				return new UnityDecryptClient()
 					.decrypt(fs.readFileSync(info.encryptedFilePath), info.key)
 					.then(decryptedData => fs.writeFileSync(info.decryptedFilePath, decryptedData))
-					.then(() => fs.unlinkSync(info.encryptedFilePath))
+					// .then(() => fs.unlinkSync(info.encryptedFilePath))
 					.then(() => console.log('ALL DONE'));
 			});
 	}
