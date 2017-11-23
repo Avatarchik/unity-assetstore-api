@@ -12,7 +12,7 @@ const ASSET_STORE_HOST 	= 'https://www.assetstore.unity3d.com',
 
 class AssetStore {
 	init() {
-		this.getAssetDownloadInfo('VRTK - Virtual Reality Toolkit - [ VR Toolkit ]').then(console.log);
+		this.downloadAsset('VRTK - Virtual Reality Toolkit - [ VR Toolkit ]').then(console.log);
 	}
 
 
@@ -104,6 +104,19 @@ class AssetStore {
 					json: true
 				});
 			})
+			.then(info => {
+				return {
+					name: 	info.download.filename_safe_package_name,
+					url: 	info.download.url,
+					key: 	info.download.key
+				}
+			});
+	}
+
+
+	downloadAsset(name) {
+		return this.getAssetDownloadInfo(name)
+			.then(info => request(info.url).pipe(fs.createWriteStream(`${info.name}.unitypackage`)));
 	}
 }
 
