@@ -22,6 +22,6 @@
     "request-promise-native": "^1.0.5",
     "underscore": "^1.8.3",
     "unity-package-decrypt": "^0.1.0",
-    "unity-package-extract": "^0.2.0"
+    "unity-package-extract": "github:moscartong/unity-package-extract"
   }
 }
