@@ -144,7 +144,7 @@ class AssetStore {
 					else {
 						console.log(`[AssetStore] downloading from ${info.url} ...`);
 						progress(request(info.url))
-							.on('progress', state => console.log(state.percent))
+							.on('progress', state => console.log(state.percent.toFixed(2) * 100 + '%'))
 							.on('error', reject)
 							.on('end', () => resolve(info))
 							.pipe(fs.createWriteStream(info.path.encryptedFilePath));
