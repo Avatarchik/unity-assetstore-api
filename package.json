@@ -13,12 +13,15 @@
   "author": "moscartong@gmail.com",
   "license": "MIT",
   "dependencies": {
+    "fs-extra": "^4.0.2",
+    "fs-path": "0.0.23",
     "nightmare": "^2.10.0",
     "node-localstorage": "^1.3.0",
     "request": "^2.83.0",
     "request-progress": "^3.0.0",
     "request-promise-native": "^1.0.5",
     "underscore": "^1.8.3",
-    "unity-package-decrypt": "^0.1.0"
+    "unity-package-decrypt": "^0.1.0",
+    "unity-package-extract": "^0.2.0"
   }
 }
