@@ -1,6 +1,7 @@
 const _ 					= require('underscore'),
 	  fs 					= require('fs'),
 	  fse 					= require('fs-extra'),
+	  clui 					= require('clui'),
 	  request 				= require('request-promise-native'),
 	  progress 				= require('request-progress'),
 	  Nightmare 			= require('nightmare'),
@@ -146,7 +147,11 @@ class AssetStore {
 						console.log(`[AssetStore] downloading from ${info.url} ...`);
 						fse.ensureDirSync(folder);
 						progress(request(info.url))
-							.on('progress', state => console.log(state.percent.toFixed(2) * 100 + '%'))
+							.on('progress', state => {
+								process.stdout.clearLine();
+								process.stdout.cursorTo(0);
+								process.stdout.write(clui.Gauge(state.percent, 1, 20, 1, ''));
+							})
 							.on('error', reject)
 							.on('end', () => resolve(info))
 							.pipe(fs.createWriteStream(info.path.encryptedFilePath));

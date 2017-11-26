@@ -13,6 +13,7 @@
   "author": "moscartong@gmail.com",
   "license": "MIT",
   "dependencies": {
+    "clui": "^0.3.6",
     "fs-extra": "^4.0.2",
     "fs-path": "0.0.23",
     "nightmare": "^2.10.0",
