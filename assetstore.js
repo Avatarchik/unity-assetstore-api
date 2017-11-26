@@ -1,5 +1,6 @@
 const _ 					= require('underscore'),
 	  fs 					= require('fs'),
+	  fse 					= require('fs-extra'),
 	  request 				= require('request-promise-native'),
 	  progress 				= require('request-progress'),
 	  Nightmare 			= require('nightmare'),
@@ -143,6 +144,7 @@ class AssetStore {
 					}
 					else {
 						console.log(`[AssetStore] downloading from ${info.url} ...`);
+						fse.ensureDirSync(folder);
 						progress(request(info.url))
 							.on('progress', state => console.log(state.percent.toFixed(2) * 100 + '%'))
 							.on('error', reject)
