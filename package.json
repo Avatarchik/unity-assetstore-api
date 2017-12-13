@@ -4,7 +4,8 @@
   "description": "NodeJS API for managing Unity AssetStore assets",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index",
+    "test": "node test"
   },
   "keywords": [
     "unity",
@@ -13,9 +14,18 @@
   "author": "moscartong@gmail.com",
   "license": "MIT",
   "dependencies": {
+    "args-js": "^0.10.12",
+    "clui": "^0.3.6",
+    "colors": "^1.1.2",
+    "fs-extra": "^4.0.2",
+    "fs-path": "0.0.23",
     "nightmare": "^2.10.0",
+    "node-localstorage": "^1.3.0",
     "request": "^2.83.0",
+    "request-progress": "^3.0.0",
+    "request-promise-native": "^1.0.5",
     "underscore": "^1.8.3",
-    "unity-package-decrypt": "^0.1.0"
+    "unity-package-decrypt": "^0.2.0",
+    "unity-package-extract": "^0.2.0"
   }
 }
