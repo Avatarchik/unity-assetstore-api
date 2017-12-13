@@ -14,7 +14,9 @@
   "author": "moscartong@gmail.com",
   "license": "MIT",
   "dependencies": {
+    "args-js": "^0.10.12",
     "clui": "^0.3.6",
+    "colors": "^1.1.2",
     "fs-extra": "^4.0.2",
     "fs-path": "0.0.23",
     "nightmare": "^2.10.0",

@@ -1,7 +1,9 @@
 const _ 					= require('underscore'),
+	  Args 					= require('args-js'),
 	  fs 					= require('fs'),
 	  fse 					= require('fs-extra'),
 	  clui 					= require('clui'),
+	  colors 				= require('colors'),
 	  request 				= require('request-promise-native'),
 	  progress 				= require('request-progress'),
 	  Nightmare 			= require('nightmare'),
@@ -22,12 +24,15 @@ class AssetStore {
 
 
 	//get session id
-	getSessionID(refresh = false) {
+	getSessionID() {
+		let args = Args([
+			{refresh:Args.BOOL | Args.Optional, _default:false}
+		], arguments);
 		return new Promise((resolve, reject) => {
 			let storedSessionID = localStorage.getItem('session');
 
 			//get session id from stored file
-			if(!refresh && storedSessionID) {
+			if(!args.refresh && storedSessionID) {
 				this._session = storedSessionID;
 				console.log('[AssetStore] got session id from cache');
 				resolve(storedSessionID);
@@ -70,11 +75,14 @@ class AssetStore {
 	}
 
 
-	getAssetList(refresh = false) {
+	getAssetList() {
+		let args = Args([
+			{refresh:Args.BOOL | Args.Optional, _default:false}
+		], arguments);
 		return this.getSessionID()
 			.then(() => {
 				let storedList = localStorage.getItem('assetlist');
-				if(storedList) {
+				if(!args.refresh && storedList) {
 					console.log('[AssetStore] got asset list from cache');
 					return JSON.parse(storedList);
 				}
@@ -100,30 +108,55 @@ class AssetStore {
 	}
 
 
-	getAssetById(id) {
-		return this.getAssetList().then(list => _.findWhere(list, {id}));
+	searchAsset() {
+		let args = Args([
+			{query:Args.STRING | Args.Required},
+			{refresh:Args.BOOL | Args.Optional, _default:false}
+		], arguments);
+
+		let spinner = new clui.Spinner('[AssetStore] searching ... ', ['|', '/', '-', '\\']);
+		spinner.start();
+
+		return this.getAssetList(args.refresh)
+			.then(list => { spinner.stop(); return list; })
+			.then(list => _.filter(list, item => item.name.toLowerCase().match(args.query.toLowerCase())))
+			.then(list => _.each(list, item => console.log(`[${item.id}]`.yellow, item.name, `/ ${item.publisher.name}`.gray)));
 	}
 
 
-	getAssetDownloadInfo(id) {
-		return this.getAssetById(id)
-			.then(asset => {
-				let storedInfo = localStorage.getItem(`info-${id}`);
-				if(storedInfo) {
+	getAssetById() {
+		let args = Args([
+			{id: 		Args.STRING | Args.Required},
+			{refresh: 	Args.BOOL 	| Args.Optional, _default:false}
+		], arguments);
+		return this.getAssetList(args.refresh).then(list => _.findWhere(list, {id:args.id}));
+	}
+
+
+	getAssetDownloadInfo() {
+		let args = Args([
+			{id: 		Args.STRING | Args.Required},
+			{refresh: 	Args.BOOL 	| Args.Optional, _default:false}
+		], arguments);
+		return this.getSessionID()
+			.then(() => {
+				let key = `info-${args.id}`,
+					storedInfo = localStorage.getItem(key);
+				if(!args.refresh && storedInfo) {
 					console.log('[AssetStore] got info from cache');
 					return JSON.parse(storedInfo);
 				}
 				else {
-					console.log(`[AssetStore] requesting download info for asset [${asset.id}]/${asset.name} ...`);
+					console.log(`[AssetStore] requesting download info for asset ${args.id} ...`);
 					return request({
 						method: 'GET',
-						url: `https://kharma.unity3d.com/api/en-US/content/download/${asset.id}.json`,
+						url: `https://kharma.unity3d.com/api/en-US/content/download/${args.id}.json`,
 						headers: {'Cookie': `kharma_session=${this._session}`},
 						json: true
 					})
 					.then(fetchedInfo => {
 						let info = fetchedInfo.download;
-						localStorage.setItem(`info-${id}`, JSON.stringify(info, null, 4));
+						localStorage.setItem(key, JSON.stringify(info, null, 4));
 						return info;
 					});
 				}
@@ -131,58 +164,67 @@ class AssetStore {
 	}
 
 
-	downloadAsset(id) {
-		return this.getAssetDownloadInfo(id)
+	downloadAssetPackage() {
+		let args = Args([
+			{id: 		Args.STRING | Args.Required},
+			{refresh: 	Args.BOOL 	| Args.Optional, _default:false}
+		], arguments);
+		return this.getAssetDownloadInfo(args)
 			.then(info => {
 				let folder = './.downloads',
 					encryptedFilePath = `${folder}/${info.id}.tmp`,
 					decryptedFilePath = `${folder}/${info.id}.unitypackage`;
 				_.extend(info, {path:{encryptedFilePath, decryptedFilePath}});
 
-				return new Promise((resolve, reject) => {
-					if(fs.existsSync(encryptedFilePath)) {
-						console.log(`[AssetStore] got file from cache`);
-						resolve(info);
-					}
-					else {
-						console.log(`[AssetStore] downloading from ${info.url} ...`);
+				if(!args.refresh && fs.existsSync(decryptedFilePath)) {
+					console.log(`[AssetStore] got decrypted package from cache`);
+					return info;
+				}
+				else {
+					return new Promise((resolve, reject) => {
+						console.log(`[AssetStore] downloading file from ${info.url} ...`);
 						fse.ensureDirSync(folder);
 						progress(request(info.url))
 							.on('progress', state => {
 								process.stdout.clearLine();
 								process.stdout.cursorTo(0);
-								process.stdout.write(clui.Gauge(state.percent, 1, 20, 1, ''));
+								process.stdout.write(clui.Gauge(state.percent, 1, 20, 1, `${(state.percent * 100).toFixed(2)}%`));
 							})
 							.on('error', reject)
 							.on('end', () => resolve(info))
 							.pipe(fs.createWriteStream(info.path.encryptedFilePath));
-					}
-				});
-			})
-			.then(info => {
-				console.log(`[AssetStore] decrypting asset package ...`);
-				
-				//TODO Failed to import package with error: Couldn't decompress package
-				return new UnityDecryptClient()
-					.decrypt(fs.readFileSync(info.path.encryptedFilePath, {encoding:'binary'}), info.key)
-					.then(decryptedData => fs.writeFileSync(info.path.decryptedFilePath, decryptedData, {encoding:'binary'}))
-					.then(() => fs.unlinkSync(info.path.encryptedFilePath))
-					.then(() => info);
+					})
+					.then(info => {
+						console.log(`\n[AssetStore] decrypting asset package ...`);
+						return new UnityDecryptClient()
+							.decrypt(fs.readFileSync(info.path.encryptedFilePath, {encoding:'binary'}), info.key)
+							.then(decryptedData => fs.writeFileSync(info.path.decryptedFilePath, decryptedData, {encoding:'binary'}))
+							.then(() => fs.unlinkSync(info.path.encryptedFilePath))
+							.then(() => info);
+					});
+				}
 			});
 	}
 
 
-	extractAsset(id) {
-		return this.downloadAsset(id)
+	extractAsset() {
+		let args = Args([
+			{id: 				Args.STRING | Args.Required},
+			{unityProjectPath: 	Args.STRING | Args.Optional, _default:'.'},
+			{refresh: 			Args.BOOL 	| Args.Optional, _default:false}
+		], arguments);
+		return this.downloadAssetPackage(args)
 			.then(info => {
-				let extractPath = `./.assets/${info.id}/`;
+				console.log(`[AssetStore] extracting package to ${args.unityProjectPath} ...`);
+				let tmp = `./.assets/`;
 				return new Promise((resolve, reject) => {
 					let client = new UnityExtractClient();
-					client.extract(info.path.decryptedFilePath, extractPath)
-						  .then(() => client.convert(extractPath).then(resolve));
+					client.extract(info.path.decryptedFilePath, tmp)
+						  .then(() => client.convert(tmp, args.unityProjectPath)
+						  .then(() => fse.removeSync(tmp))
+						  .then(resolve));
 				});
-			})
-			.then(() => console.log('done'));
+			});
 	}
 }
 

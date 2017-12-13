@@ -1,4 +1,2 @@
 const assetstore = require('./assetstore');
-
-
-assetstore.extractAsset('64131');
+assetstore.searchAsset('simple');
