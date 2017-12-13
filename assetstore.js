@@ -6,6 +6,7 @@ const _ 					= require('underscore'),
 	  progress 				= require('request-progress'),
 	  Nightmare 			= require('nightmare'),
 	  UnityDecryptClient 	= require('unity-package-decrypt').UnityDecryptClient,
+	  UnityExtractClient 	= require('unity-package-extract').UnityExtractClient,
 	  LocalStorage 			= require('node-localstorage').LocalStorage,
 	  localStorage 			= new LocalStorage('./.ls');
 
@@ -99,13 +100,13 @@ class AssetStore {
 	}
 
 
-	getAssetNamed(id) {
+	getAssetById(id) {
 		return this.getAssetList().then(list => _.findWhere(list, {id}));
 	}
 
 
 	getAssetDownloadInfo(id) {
-		return this.getAssetNamed(id)
+		return this.getAssetById(id)
 			.then(asset => {
 				let storedInfo = localStorage.getItem(`info-${id}`);
 				if(storedInfo) {
@@ -135,7 +136,7 @@ class AssetStore {
 			.then(info => {
 				let folder = './.downloads',
 					encryptedFilePath = `${folder}/${info.id}.tmp`,
-					decryptedFilePath = `${folder}/${info.filename_safe_package_name}.unitypackage`;
+					decryptedFilePath = `${folder}/${info.id}.unitypackage`;
 				_.extend(info, {path:{encryptedFilePath, decryptedFilePath}});
 
 				return new Promise((resolve, reject) => {
@@ -164,10 +165,24 @@ class AssetStore {
 				//TODO Failed to import package with error: Couldn't decompress package
 				return new UnityDecryptClient()
 					.decrypt(fs.readFileSync(info.path.encryptedFilePath, {encoding:'binary'}), info.key)
-					.then(decryptedData => fs.writeFileSync(info.path.decryptedFilePath, decryptedData))
-					// .then(() => fs.unlinkSync(info.path.encryptedFilePath))
-					.then(() => console.log('ALL DONE'));
+					.then(decryptedData => fs.writeFileSync(info.path.decryptedFilePath, decryptedData, {encoding:'binary'}))
+					.then(() => fs.unlinkSync(info.path.encryptedFilePath))
+					.then(() => info);
 			});
+	}
+
+
+	extractAsset(id) {
+		return this.downloadAsset(id)
+			.then(info => {
+				let extractPath = `./.assets/${info.id}/`;
+				return new Promise((resolve, reject) => {
+					let client = new UnityExtractClient();
+					client.extract(info.path.decryptedFilePath, extractPath)
+						  .then(() => client.convert(extractPath).then(resolve));
+				});
+			})
+			.then(() => console.log('done'));
 	}
 }
 
